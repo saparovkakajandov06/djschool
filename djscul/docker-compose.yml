@@ -1,0 +1,53 @@
+# Используем 3-ю версию docker-compose
+version: "3"
+
+# Определяем сервисы 
+services:
+
+  # Имя сервисa
+  postgresdb:
+    # Откуда он будет билдится
+    build:
+      # Наша директория
+      context: ./docker/postgres
+      # Наш Dockerfile (например, если бы он назывался 'test.Dockerfile', мы бы написали 'test.Dockerfile')
+      dockerfile: Dockerfile
+    environment:
+      - POSTGRES_PASSWORD=password
+    # Говорим где сохранить изменения (например, у нас есть БД, но когда мы снова запустим docker build и docker run, 
+    # наша БД будет переделана (в ней не будет данных, которые у нее были), для сохранения данных пишем volumes)
+    volumes:
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    # Какие порты будут открыты. Сначала мы сообщаем порт localhost, а затем порт хоста
+    ports:
+      - "5432:5432"
+
+  # Имя сервисa
+  web:
+    # Откуда он будет билдится
+    build:
+      # Наша директориа
+      context: ./
+      # Наш Dockerfile
+      dockerfile: Dockerfile
+    # Говорим где сохранить изменения
+    volumes:
+      - ./:/usr/src/app
+    # Говорим сервисy не запускаться, если другой сервис не запущен, в данном случае postgresdb (мы сделаем его после этого)
+    depends_on: 
+      - postgresdb
+    # Какие порты будут открыты. Сначала мы сообщаем порт localhost, а затем порт хоста
+    ports:
+      - "8008:8008"
+
+  nginx:
+    build:
+      context: ./docker/nginx
+      dockerfile: Dockerfile
+    depends_on: 
+      - web
+      - postgresdb
+    ports:
+      - "80:80"
+    volumes: 
+      - ./static/:/static
